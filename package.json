@@ -1,0 +1,27 @@
+{
+  "name": "star-shop_backend",
+  "version": "1.0.0",
+  "description": "\"Node.js backend for star-shop\"",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "connect-session-sequelize": "^8.0.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "mongoose": "^9.9.4",
+    "nodemon": "^3.1.14",
+    "pg": "^8.23.0",
+    "pg-hstore": "^2.3.4",
+    "router": "^2.2.0",
+    "sequelize": "^6.37.8"
+  }
+}
