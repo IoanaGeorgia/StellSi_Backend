@@ -10,14 +10,22 @@ import userRouter from './routes/user.js';
 import contactRouter from './routes/contact.js';
 import session from 'express-session';
 import connectSessionSequelize from "connect-session-sequelize";
+import cors from 'cors';
 
 dotenv.config()
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 
 app.use(express.json());
+
+
+app.use(cors({
+  origin: 'https://stellsi.onrender.com',
+  credentials: true
+}));
 
 // this creates a session table in ur database automatocally
 const SequelizeStore = connectSessionSequelize(session.Store);
