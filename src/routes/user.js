@@ -48,7 +48,7 @@ router.get("/history", async (req, res) => {
             userHistory: ordersWithItems
         }
 
-        res.status(200).json({ message: "Scissor me timbers", data: userToReturn })
+        res.status(200).json({ message: "User info fetched successfully", data: userToReturn })
 
 
 
@@ -84,5 +84,66 @@ router.get('/delete', async (req, res) =>{
         res.status(400).json({ error: "Internal Server Error" })
     }
 })
+
+
+router.post('/edit', async (req, res) => {
+    try {
+        const { email, password, username } = req.body;
+
+        if (username === undefined || email === undefined || password === undefined) {
+            return res.status(400).json({ error: "Missing either username, email or password" });
+        }
+
+        if (!req.session || !req.session.user || !req.session.user.id) {
+            return res.status(401).json({ error: "User not authenticated" });
+        }
+
+        const userId = req.session.user.id;
+        const userToEdit = await User.findOne({ where: { id: userId } });
+
+        if (!userToEdit) {
+            return res.status(400).json({ error: "User not found" });
+        }
+
+        const userNewInfo = {};
+
+        if (username !== userToEdit.username) {
+            userNewInfo.username = username;
+        }
+
+        if (email !== userToEdit.email) {
+            userNewInfo.email = email;
+        }
+
+        if (password && password.trim() !== "") {
+            const isPasswordSame = await bcrypt.compare(password, userToEdit.password);
+            
+            if (!isPasswordSame) {
+                const hashedPassword = await bcrypt.hash(password, 10);
+                userNewInfo.password = hashedPassword;
+            }
+        }
+
+        if (Object.keys(userNewInfo).length === 0) {
+            return res.status(200).json({ message: "No changes made", data: userToEdit });
+        }
+
+        const [affectedRows] = await User.update(userNewInfo, { where: { id: userToEdit.id } });
+
+        if (affectedRows === 0) {
+            return res.status(400).json({ error: "Failed to update user" });
+        }
+
+        const updatedUser = await User.findOne({ 
+            where: { id: userToEdit.id },
+            attributes: { exclude: ['password'] }
+        });
+
+        return res.status(200).json({ message: "User successfully updated", data: updatedUser });
+
+    } catch (error) {
+        return res.status(500).json({ error: "Internal Server Error" });
+    }
+});
 
 export default router;
