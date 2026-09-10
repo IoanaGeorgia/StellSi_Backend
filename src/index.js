@@ -37,6 +37,8 @@ const sessionStore = new SequelizeStore({
   expiration: 24 * 60 * 60 * 1000
 });
 
+app.set('trust proxy', 1);
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -45,6 +47,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true, 
+      secure: true,
+      sameSite: 'none',
       maxAge: 1000 * 60 * 60 * 24 
     }
   })

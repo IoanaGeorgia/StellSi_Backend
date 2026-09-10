@@ -50,8 +50,6 @@ router.get("/history", async (req, res) => {
 
         res.status(200).json({ message: "User info fetched successfully", data: userToReturn })
 
-
-
     } catch (error) {
         res.status(400).json({ error: "Internal Server Error" })
     }
