@@ -1,5 +1,5 @@
 import express from 'express';
-import { Product, Order, OrderItem } from '../models/index.js'; 
+import { Product, Order, OrderItem, Voucher } from '../models/index.js'; 
 
 const router = express.Router();
 
@@ -70,11 +70,45 @@ router.post("/", async (req, res) => {
     } catch (error) {
         
         return res.status(500).json({ 
-            error: "Internal Server Error", 
-            message: error.message,
-            sqlDetail: error.original?.detail || null 
+            error: "Internal Server Error"
         });
     }
 });
 
+
+router.post('/voucher', async (req, res)=>{
+    try{
+        const {voucherCode} = req.body
+
+        if(!voucherCode){
+            return res.status(400).json({error:"Voucher is missing"})
+        }
+
+         if (!req.session || !req.session.user) {
+            return res.status(401).json({ message: "Neautorizat. Te rugăm să te autentifici." });
+        }
+
+        const voucher = await Voucher.findOne({where:{code: voucherCode}})
+        if(!voucher){
+            return res.status(200).json({error:"No voucher found!", code:"NO_VOUCHER"})
+        }
+
+        if(!voucher.active){
+            return res.status(400).json({error:"Voucher is not active"})
+        }
+
+        const now = new Date();
+        const expiry = new Date(voucher.expirationDate);
+
+        if(!(expiry >= now)){
+            return res.status(200).json({error:"Voucher has expired!", code:"VOUCHER_EXPIRED"})
+        }
+        
+        return res.status(200).json({message:"Voucher successfully returned", data:voucher})
+
+
+    }catch(error){
+        return res.status(400).json({error:"Internal Server Error"})
+    }
+})
 export default router;

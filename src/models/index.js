@@ -4,6 +4,7 @@ import { Order } from './Order.js';
 import { OrderItem } from './OrderItem.js';
 import { Product } from './Product.js';
 import { Contact } from './Contact.js';
+import { Voucher } from './Voucher.js';
 
 User.hasMany(Order, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Order.belongsTo(User, { foreignKey: 'userId' });
@@ -14,4 +15,4 @@ OrderItem.belongsTo(Order, { foreignKey: 'orderId' });
 Product.hasMany(OrderItem, { foreignKey: 'productId' });
 OrderItem.belongsTo(Product, { foreignKey: 'productId' });
 
-export { sequelize, User, Order, OrderItem, Product, Contact };
+export { sequelize, User, Order, OrderItem, Product, Contact, Voucher };
