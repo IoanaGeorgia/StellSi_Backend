@@ -5,6 +5,7 @@ import { OrderItem } from './OrderItem.js';
 import { Product } from './Product.js';
 import { Contact } from './Contact.js';
 import { Voucher } from './Voucher.js';
+import { UserVoucher } from './UserVoucher.js';
 
 User.hasMany(Order, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Order.belongsTo(User, { foreignKey: 'userId' });
@@ -15,4 +16,13 @@ OrderItem.belongsTo(Order, { foreignKey: 'orderId' });
 Product.hasMany(OrderItem, { foreignKey: 'productId' });
 OrderItem.belongsTo(Product, { foreignKey: 'productId' });
 
-export { sequelize, User, Order, OrderItem, Product, Contact, Voucher };
+Voucher.hasMany(UserVoucher, { foreignKey: 'voucherId', onDelete: 'CASCADE' });
+UserVoucher.belongsTo(Voucher, { foreignKey: 'voucherId' });
+
+User.hasMany(UserVoucher, {foreignKey:'userId', onDelete:"CASCADE"});
+UserVoucher.belongsTo(User, {foreignKey: 'userId'})
+
+Order.hasOne(UserVoucher, { foreignKey: 'orderId', onDelete: 'SET NULL' });
+UserVoucher.belongsTo(Order, { foreignKey: 'orderId' });
+
+export { sequelize, User, Order, OrderItem, Product, Contact, Voucher, UserVoucher };

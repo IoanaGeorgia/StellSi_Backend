@@ -1,14 +1,52 @@
 import express from 'express';
-import { Product, Order, OrderItem, Voucher } from '../models/index.js'; 
+import { sequelize } from '../config/db.js';
+import { Product, Order, OrderItem, Voucher, UserVoucher } from '../models/index.js'; 
 
 const router = express.Router();
 
+
 router.post("/", async (req, res) => {
+    const transaction = await sequelize.transaction();
+
     try {
-        const { userId, totalSum, billingAddress, shippingAddress, items } = req.body;
+        const sessionUserId = req.session?.user?.id || null;
+        
+        const { totalSum, billingAddress, shippingAddress, items, voucherId } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
+            await transaction.rollback();
             return res.status(400).json({ error: 'Coșul de cumpărături este gol.' });
+        }
+
+        let calculatedTotal = Number(totalSum);
+        let appliedVoucher = null;
+
+        if (voucherId) {
+            appliedVoucher = await Voucher.findByPk(voucherId, { transaction });
+
+            if (!appliedVoucher) {
+                await transaction.rollback();
+                return res.status(400).json({ error: 'Voucher-ul introdus nu există.' });
+            }
+
+            if (!appliedVoucher.active) {
+                await transaction.rollback();
+                return res.status(400).json({ error: 'Voucher-ul introdus nu mai este activ.' });
+            }
+
+            if (appliedVoucher.expirationDate && new Date(appliedVoucher.expirationDate) < new Date()) {
+                await transaction.rollback();
+                return res.status(400).json({ error: 'Voucher-ul introdus a expirat.' });
+            }
+
+            if (appliedVoucher.percent) {
+                const discount = (calculatedTotal * Number(appliedVoucher.sum)) / 100;
+                calculatedTotal = calculatedTotal - discount;
+            } else {
+                calculatedTotal = calculatedTotal - Number(appliedVoucher.sum);
+            }
+
+            calculatedTotal = Math.max(0, calculatedTotal);
         }
 
         const orderItemsToCreate = [];
@@ -17,10 +55,10 @@ router.post("/", async (req, res) => {
             const star = item.starDetails || {};
 
             const [product] = await Product.findOrCreate({
-                where: { name: star.name || 'Stea Unică' },
+                where: { name: star.name || item.name || 'Stea Unică' },
                 defaults: {
-                    name: star.name || 'Stea Unică',
-                    description: `Steaua ${star.name || ''}`, 
+                    name: star.name || item.name || 'Stea Unică',
+                    description: `Steaua ${star.name || item.name || ''}`, 
                     price: item.price || 20000,
                     stock: 1,
                     constellation: star.constellation || null,
@@ -30,7 +68,8 @@ router.post("/", async (req, res) => {
                     absoluteMagnitude: star.absolute_magnitude || null,
                     distanceLightYear: star.distance_light_year || null,
                     spectralClass: star.spectral_class || null
-                }
+                },
+                transaction
             });
 
             const qty = item.quantity || 1;
@@ -43,34 +82,53 @@ router.post("/", async (req, res) => {
             });
         }
 
+        const formatAddress = (addr) => {
+            if (!addr) return '';
+            return typeof addr === 'object' ? JSON.stringify(addr) : String(addr);
+        };
+
         const newOrder = await Order.create({
-            userId: userId || null,
-            totalSum: Number(totalSum),
-            shippingAddress: typeof shippingAddress === 'object' ? JSON.stringify(shippingAddress) : (shippingAddress || ''),
-            billingAddress: typeof billingAddress === 'object' ? JSON.stringify(billingAddress) : (billingAddress || ''),
+            userId: sessionUserId,
+            totalSum: calculatedTotal,
+            shippingAddress: formatAddress(shippingAddress),
+            billingAddress: formatAddress(billingAddress),
             status: 'pending'
-        });
+        }, { transaction });
 
         const itemsWithOrderId = orderItemsToCreate.map(item => ({
             orderId: newOrder.id,
             productId: item.productId,
             quantity: item.quantity,
-            price:item.priceAtPurchase
+            price: item.priceAtPurchase
         }));
 
+        await OrderItem.bulkCreate(itemsWithOrderId, { transaction });
 
-        await OrderItem.bulkCreate(itemsWithOrderId);
+        if (appliedVoucher && sessionUserId) {
+            await UserVoucher.create({
+                userId: sessionUserId,
+                voucherId: appliedVoucher.id,
+                orderId: newOrder.id,
+                code: appliedVoucher.code
+            }, { transaction });
+        }
+
+        await transaction.commit();
 
         return res.status(201).json({
             message: 'Comanda a fost plasată cu succes!',
             orderId: newOrder.id,
-            totalAmount: newOrder.totalAmount
+            totalSum: newOrder.totalSum,
+            discountApplied: Boolean(appliedVoucher)
         });
 
     } catch (error) {
-        
+        await transaction.rollback();
+        console.error("ORDER CREATION ERROR:", error);
+
         return res.status(500).json({ 
-            error: "Internal Server Error"
+            error: "Internal Server Error",
+            details: error.message 
         });
     }
 });
